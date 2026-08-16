@@ -85,32 +85,44 @@ async def main():
                     pass
 
             try:
-                if os.name == 'nt' and os.path.exists(CHROME_PATH):
-                    cmd = [
-                        CHROME_PATH,
-                        "--remote-debugging-port=9222",
-                        f"--user-data-dir={USER_DATA_DIR}",
+                # Tự khởi chạy Chrome Profile trực tiếp qua Playwright
+                context = await p.chromium.launch_persistent_context(
+                    user_data_dir=USER_DATA_DIR,
+                    executable_path=CHROME_PATH if (os.path.exists(CHROME_PATH)) else None,
+                    headless=False,
+                    channel="chrome",
+                    args=[
                         f"--profile-directory={PROFILE_NAME}",
-                        "--remote-allow-origins=*",
-                        TARGET_URL
+                        "--remote-allow-origins=*"
                     ]
-                    subprocess.Popen(cmd)
-                    print("[+] Đã gọi Chrome hệ thống khởi chạy với Port 9222!")
-                else:
-                    webbrowser.open(TARGET_URL)
-                    print("[+] Đã gọi trình duyệt mở URL hệ thống!")
-                
-                await asyncio.sleep(3)
-                
-                # Thử kết nối lại CDP sau khi Chrome khởi chạy
-                try:
-                    browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=8000)
-                    context = browser.contexts[0]
-                    print("[+] THÀNH CÔNG: Đã kết nối CDP với Chrome mới!")
-                except Exception as retry_err:
-                    print(f"[!] Lỗi kết nối CDP sau khi khởi chạy: {retry_err}")
+                )
+                print("[+] THÀNH CÔNG: Đã khởi chạy Chrome với Profile cá nhân!")
             except Exception as launch_err:
-                print(f"[!] Lỗi khi mở Chrome: {launch_err}")
+                print(f"[!] Lỗi khi mở Chrome với launch_persistent_context: {launch_err}")
+                print("[*] Đang thử mở Chrome bằng lệnh hệ thống...")
+                try:
+                    if os.name == 'nt' and os.path.exists(CHROME_PATH):
+                        cmd = [
+                            CHROME_PATH,
+                            "--remote-debugging-port=9222",
+                            f"--user-data-dir={USER_DATA_DIR}",
+                            f"--profile-directory={PROFILE_NAME}",
+                            "--remote-allow-origins=*",
+                            TARGET_URL
+                        ]
+                        subprocess.Popen(cmd)
+                    else:
+                        webbrowser.open(TARGET_URL)
+                    
+                    await asyncio.sleep(3)
+                    try:
+                        browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=8000)
+                        context = browser.contexts[0]
+                        print("[+] THÀNH CÔNG: Đã kết nối CDP với Chrome mới!")
+                    except Exception as retry_err:
+                        print(f"[!] Lỗi kết nối CDP: {retry_err}")
+                except Exception:
+                    pass
 
         # Lấy page hiện tại nếu có context
         if context:
