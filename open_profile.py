@@ -18,8 +18,10 @@ async def main():
             print(f"[*] Thử kết nối vào Chrome CDP tại {CDP_URL}...")
             browser = await p.chromium.connect_over_cdp(CDP_URL)
             context = browser.contexts[0]
-            page = context.pages[0] if context.pages else await context.new_page()
-            print("[+] THÀNH CÔNG: Đã kết nối vào trình duyệt Chrome đang chạy!")
+            # Mở tab mới chuẩn để tránh bị kẹt ở chrome://newtab/
+            page = await context.new_page()
+            await page.bring_to_front()
+            print("[+] THÀNH CÔNG: Đã kết nối vào trình duyệt Chrome đang chạy (Đã mở Tab mới)!")
         except Exception as e:
             print(f"[-] Không thể kết nối CDP ({e}).")
             print(f"[*] Tiến hành tự khởi chạy Chrome Profile trực tiếp...")
@@ -35,7 +37,8 @@ async def main():
                         "--remote-allow-origins=*"
                     ]
                 )
-                page = context.pages[0] if context.pages else await context.new_page()
+                page = await context.new_page()
+                await page.bring_to_front()
                 print("[+] THÀNH CÔNG: Đã khởi chạy Chrome với Profile cá nhân!")
             except Exception as launch_err:
                 print(f"[!] LỖI khi khởi chạy Chrome: {launch_err}")
