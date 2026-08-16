@@ -18,10 +18,15 @@ async def main():
             print(f"[*] Thử kết nối vào Chrome CDP tại {CDP_URL}...")
             browser = await p.chromium.connect_over_cdp(CDP_URL)
             context = browser.contexts[0]
-            # Mở tab mới chuẩn để tránh bị kẹt ở chrome://newtab/
-            page = await context.new_page()
+            
+            # Chọn tab đang mở sẵn thay vì tạo thêm tab about:blank mới
+            if context.pages:
+                page = context.pages[-1]
+            else:
+                page = await context.new_page()
+                
             await page.bring_to_front()
-            print("[+] THÀNH CÔNG: Đã kết nối vào trình duyệt Chrome đang chạy (Đã mở Tab mới)!")
+            print("[+] THÀNH CÔNG: Đã kết nối vào trình duyệt Chrome đang chạy!")
         except Exception as e:
             print(f"[-] Không thể kết nối CDP ({e}).")
             print(f"[*] Tiến hành tự khởi chạy Chrome Profile trực tiếp...")
@@ -37,7 +42,7 @@ async def main():
                         "--remote-allow-origins=*"
                     ]
                 )
-                page = await context.new_page()
+                page = context.pages[0] if context.pages else await context.new_page()
                 await page.bring_to_front()
                 print("[+] THÀNH CÔNG: Đã khởi chạy Chrome với Profile cá nhân!")
             except Exception as launch_err:
@@ -45,14 +50,22 @@ async def main():
                 print(">>> LƯU Ý: Nếu Chrome đang mở bình thường, hãy đóng Chrome hoặc chạy file launch_chrome.bat trước!")
                 return
 
-        # Thực hiện chuyển hướng đến TARGET_URL một cách an toàn
+        # Thực hiện chuyển hướng đến TARGET_URL (với fallback JS location.href)
         print(f"\n[*] Đang chuyển hướng đến trang web: {TARGET_URL}")
         try:
-            await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
-            print("[+] Đã chuyển hướng thành công!")
+            await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=15000)
         except Exception as goto_err:
-            print(f"[!] Cảnh báo khi chuyển hướng: {goto_err}")
-            print("[*] Vẫn tiếp tục kiểm tra trang...")
+            print(f"[!] goto() không hoàn tất nhanh ({goto_err}), đang thử ép chuyển hướng qua JS...")
+
+        # Ép chuyển hướng qua JavaScript nếu trang vẫn ở about:blank hoặc chrome://newtab/
+        try:
+            current_url = page.url
+            if "pathofexile.com" not in current_url:
+                print("[*] Thực thi JavaScript window.location.href để ép Chrome chuyển hướng...")
+                await page.evaluate(f"window.location.href = '{TARGET_URL}'")
+                await asyncio.sleep(2)
+        except Exception as eval_err:
+            print(f"[!] Cảnh báo JS redirect: {eval_err}")
 
         try:
             title = await page.title()
