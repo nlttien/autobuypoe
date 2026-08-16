@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Cấu hình đường dẫn Chrome và User Data trên Windows
-WIN_USER = os.getenv("USERNAME", "tien")
+WIN_USER = os.getenv("USERNAME", "Admin")
+LOCAL_APPDATA = os.getenv("LOCALAPPDATA", rf"C:\Users\{WIN_USER}\AppData\Local")
 
 # Đường dẫn file thực thi Chrome trên Windows
 CHROME_PATH = os.getenv(
@@ -15,7 +16,7 @@ CHROME_PATH = os.getenv(
 # Đường dẫn thư mục User Data của Chrome trên Windows
 USER_DATA_DIR = os.getenv(
     "USER_DATA_DIR",
-    rf"C:\Users\{WIN_USER}\AppData\Local\Google\Chrome\User Data"
+    rf"{LOCAL_APPDATA}\Google\Chrome\User Data"
 )
 
 # Tên Profile muốn sử dụng ("Default", "Profile 1", "Profile 2", ...)
