@@ -42,39 +42,8 @@ async def main():
                 print(">>> LƯU Ý: Nếu Chrome đang mở bình thường, hãy đóng Chrome hoặc chạy file launch_chrome.bat trước!")
                 return
 
-        # Thử điều khiển trình duyệt
-        print(f"\n[*] Đang điều hướng đến trang: {TARGET_URL}")
-        await page.goto(TARGET_URL, timeout=60000)
-        
-        title = await page.title()
-        url = page.url
-        print(f"[+] Tiêu đề trang: {title}")
-        print(f"[+] URL hiện tại  : {url}")
-        
-        # Đợi danh sách kết quả hoặc nút "Travel to Hideout" tải xong
-        print("\n[*] Đang tìm kiếm nút 'Travel to Hideout' (<button class=\"btn btn-xs btn-default direct-btn\">)...")
-        try:
-            # Selector nhắm chính xác nút Direct Buy / Travel to Hideout
-            selector = "button.direct-btn"
-            
-            # Chờ ít nhất 1 nút xuất hiện (timeout 15 giây)
-            await page.wait_for_selector(selector, timeout=15000)
-            
-            buttons = page.locator(selector)
-            count = await buttons.count()
-            print(f"[+] ĐÃ TÌM THẤY {count} nút 'Travel to Hideout' trên trang!")
-            
-            for i in range(count):
-                btn = buttons.nth(i)
-                btn_text = await btn.inner_text()
-                is_visible = await btn.is_visible()
-                print(f"    - Nút #{i + 1}: Text='{btn_text.strip()}', Hiển thị={is_visible}")
-                
-        except Exception as err:
-            print(f"[-] Không tìm thấy nút 'Travel to Hideout' trong 15s ({err}).")
-            print("[!] Mẹo: Hãy kiểm tra xem trang có đang bắt xác minh Cloudflare, cần đăng nhập hoặc kết quả chưa tải hết.")
-        
-        print("\n[i] Nhấn Ctrl+C để kết thúc script (Trình duyệt sẽ giữ nguyên trạng thái).")
+        print("\n[+] Chrome đã sẵn sàng! Đã dừng lại sau khi mở Chrome (Không mở trang web nào).")
+        print("[i] Nhấn Ctrl+C để kết thúc script (Trình duyệt sẽ giữ nguyên trạng thái).")
         try:
             while True:
                 await asyncio.sleep(1)
