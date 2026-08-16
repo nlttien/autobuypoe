@@ -31,7 +31,7 @@ TARGET_URL = os.getenv(
 )
 
 # Cấu hình tài khoản đăng nhập PoE (nếu muốn tự động điền)
-POE_EMAIL = os.getenv("POE_EMAIL", "")
-POE_PASSWORD = os.getenv("POE_PASSWORD", "")
+POE_EMAIL = os.getenv("POE_EMAIL", "brendagruener42190@hotmail.com")
+POE_PASSWORD = os.getenv("POE_PASSWORD", "Gege@999")
 
 
