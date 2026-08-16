@@ -13,19 +13,20 @@ async def handle_poe_login(page):
     try:
         # 1. Kiểm tra màn hình Sign In (nút <a class="splash__continue">CONTINUE</a>)
         continue_selector = "a.splash__continue, a[href*='/login'], a:has-text('Continue')"
-        continue_btn = page.locator(continue_selector).first
-        
-        if await continue_btn.is_visible(timeout=5000):
-            print("\n[!] PHÁT HIỆN MÀN HÌNH SIGN IN! Đang bấm nút 'CONTINUE'...")
-            await continue_btn.click()
-            await page.wait_for_load_state("domcontentloaded")
-            await asyncio.sleep(2)
+        try:
+            continue_btn = page.locator(continue_selector).first
+            if await continue_btn.is_visible(timeout=5000):
+                print("\n[!] PHÁT HIỆN MÀN HÌNH SIGN IN! Đang bấm nút 'CONTINUE'...")
+                await continue_btn.click()
+                await page.wait_for_load_state("domcontentloaded")
+                await asyncio.sleep(2)
+        except Exception:
+            pass
         
         # 2. Kiểm tra nếu đang ở trang Đăng nhập (/login)
         if "/login" in page.url:
             print("[*] Đang ở trang Đăng nhập (/login)...")
             
-            # Kiểm tra ô nhập Email/Username và Mật khẩu
             email_input = page.locator("input#login_email, input[name='login_email'], input[type='email']").first
             password_input = page.locator("input#login_password, input[name='login_password'], input[type='password']").first
             submit_btn = page.locator("input#login_submit, button#login_submit, input[type='submit'][value*='Sign In'], button:has-text('Sign In')").first
@@ -69,12 +70,11 @@ async def main():
         # 1. Thử kết nối tới Chrome CDP đã mở sẵn (Port 9222)
         try:
             print(f"[*] Thử kết nối vào Chrome CDP tại {CDP_URL}...")
-            browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=3000)
+            browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=2000)
             context = browser.contexts[0]
             print("[+] THÀNH CÔNG: Đã kết nối vào trình duyệt Chrome đang chạy qua CDP!")
-        except Exception as e:
-            print(f"[-] Chưa thể kết nối CDP trực tiếp ({e}).")
-            print(f"[*] Tiến hành dọn dẹp tiến trình Chrome cũ và khởi chạy lại...")
+        except Exception:
+            print("[-] Chưa kết nối CDP trực tiếp. Tiến hành tự khởi chạy Chrome...")
             
             # Dọn dẹp các tiến trình Chrome cũ/treo nếu chạy trên Windows
             if os.name == 'nt':
@@ -98,8 +98,8 @@ async def main():
                 )
                 print("[+] THÀNH CÔNG: Đã khởi chạy Chrome với Profile cá nhân!")
             except Exception as launch_err:
-                print(f"[!] Lỗi khi mở Chrome với launch_persistent_context: {launch_err}")
-                print("[*] Đang thử mở Chrome bằng lệnh hệ thống...")
+                print(f"[!] Lỗi launch_persistent_context: {launch_err}")
+                print("[*] Thử mở Chrome qua subprocess hệ thống...")
                 try:
                     if os.name == 'nt' and os.path.exists(CHROME_PATH):
                         cmd = [
@@ -118,53 +118,47 @@ async def main():
                     try:
                         browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=8000)
                         context = browser.contexts[0]
-                        print("[+] THÀNH CÔNG: Đã kết nối CDP với Chrome mới!")
-                    except Exception as retry_err:
-                        print(f"[!] Lỗi kết nối CDP: {retry_err}")
+                    except Exception:
+                        pass
                 except Exception:
                     pass
 
-        # Lấy page hiện tại nếu có context
+        # Thực thi điều hướng và thao tác lập tức
         if context:
-            if context.pages:
-                page = context.pages[-1]
-            else:
-                page = await context.new_page()
+            page = context.pages[0] if context.pages else await context.new_page()
             
             try:
                 await page.bring_to_front()
             except Exception:
                 pass
 
-            # Thực hiện chuyển hướng đến TARGET_URL nếu trang hiện tại chưa phải PoE Trade
-            if "pathofexile.com" not in page.url:
-                print(f"\n[*] Đang chuyển hướng đến trang web: {TARGET_URL}")
+            # Chuyển hướng ngay lập tức đến TARGET_URL
+            print(f"\n[*] Điều hướng đến trang web: {TARGET_URL}")
+            try:
+                await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=30000)
+            except Exception as goto_err:
+                print(f"[!] Cảnh báo goto: {goto_err}")
                 try:
-                    await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=15000)
-                except Exception as goto_err:
-                    print(f"[!] goto() không hoàn tất nhanh ({goto_err}), đang thử ép chuyển hướng qua JS...")
-
-                try:
-                    current_url = page.url
-                    if "pathofexile.com" not in current_url:
-                        print("[*] Thực thi JavaScript window.location.href để ép Chrome chuyển hướng...")
-                        await page.evaluate(f"window.location.href = '{TARGET_URL}'")
-                        await asyncio.sleep(2)
-                except Exception as eval_err:
-                    print(f"[!] Cảnh báo JS redirect: {eval_err}")
+                    await page.evaluate(f"window.location.href = '{TARGET_URL}'")
+                except Exception:
+                    pass
 
             try:
-                title = await page.title()
-                url = page.url
-                print(f"[+] Tiêu đề trang: {title}")
-                print(f"[+] URL hiện tại  : {url}")
+                print(f"[+] Tiêu đề trang: {await page.title()}")
+                print(f"[+] URL hiện tại  : {page.url}")
             except Exception:
                 pass
 
-        # Tìm kiếm và xử lý các bước Đăng nhập & Tìm nút "Travel to Hideout"
-        if page:
             # 1. Xử lý màn hình Sign In & các bước đăng nhập
             await handle_poe_login(page)
+
+            # Đảm bảo trang quay về TARGET_URL nếu cần
+            if "trade/search" in TARGET_URL and "trade/search" not in page.url:
+                print(f"[*] Chuyển lại về URL tìm kiếm: {TARGET_URL}")
+                try:
+                    await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=30000)
+                except Exception:
+                    pass
 
             # 2. Tìm kiếm nút "Travel to Hideout"
             print("\n[*] Đang tìm kiếm nút 'Travel to Hideout' (<button class=\"btn btn-xs btn-default direct-btn\">)...")
