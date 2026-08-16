@@ -30,3 +30,8 @@ TARGET_URL = os.getenv(
     "https://www.pathofexile.com/trade/search/Allflame/rPaWLegmCQ"
 )
 
+# Cấu hình tài khoản đăng nhập PoE (nếu muốn tự động điền)
+POE_EMAIL = os.getenv("POE_EMAIL", "")
+POE_PASSWORD = os.getenv("POE_PASSWORD", "")
+
+

@@ -4,7 +4,57 @@ import sys
 import subprocess
 import webbrowser
 from playwright.async_api import async_playwright
-from config import CHROME_PATH, USER_DATA_DIR, PROFILE_NAME, CDP_URL, TARGET_URL
+from config import CHROME_PATH, USER_DATA_DIR, PROFILE_NAME, CDP_URL, TARGET_URL, POE_EMAIL, POE_PASSWORD
+
+async def handle_poe_login(page):
+    """
+    Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập
+    """
+    try:
+        # 1. Kiểm tra màn hình Sign In (nút <a class="splash__continue">CONTINUE</a>)
+        continue_selector = "a.splash__continue, a[href*='/login'], a:has-text('Continue')"
+        continue_btn = page.locator(continue_selector).first
+        
+        if await continue_btn.is_visible(timeout=5000):
+            print("\n[!] PHÁT HIỆN MÀN HÌNH SIGN IN! Đang bấm nút 'CONTINUE'...")
+            await continue_btn.click()
+            await page.wait_for_load_state("domcontentloaded")
+            await asyncio.sleep(2)
+        
+        # 2. Kiểm tra nếu đang ở trang Đăng nhập (/login)
+        if "/login" in page.url:
+            print("[*] Đang ở trang Đăng nhập (/login)...")
+            
+            # Kiểm tra ô nhập Email/Username và Mật khẩu
+            email_input = page.locator("input#login_email, input[name='login_email'], input[type='email']").first
+            password_input = page.locator("input#login_password, input[name='login_password'], input[type='password']").first
+            submit_btn = page.locator("input#login_submit, button#login_submit, input[type='submit'][value*='Sign In'], button:has-text('Sign In')").first
+            
+            if await email_input.is_visible(timeout=5000) and await password_input.is_visible(timeout=5000):
+                if POE_EMAIL and POE_PASSWORD:
+                    print(f"[*] Tự động điền email '{POE_EMAIL}' và mật khẩu...")
+                    await email_input.fill(POE_EMAIL)
+                    await password_input.fill(POE_PASSWORD)
+                    await asyncio.sleep(1)
+                    
+                    if await submit_btn.is_visible():
+                        print("[*] Bấm nút 'Sign In'...")
+                        await submit_btn.click()
+                        print("[+] Đã gửi thông tin đăng nhập!")
+                else:
+                    print("[!] LƯU Ý: Chưa điền POE_EMAIL và POE_PASSWORD trong file config.py / .env.")
+                    print("[*] Vui lòng tự nhập tài khoản và đăng nhập trên màn hình Chrome...")
+                    
+                # Chờ đăng nhập hoàn tất và quay về trang PoE Trade
+                print("[*] Chờ hoàn tất đăng nhập...")
+                try:
+                    await page.wait_for_url(lambda u: "/login" not in u, timeout=60000)
+                    print("[+] Đăng nhập thành công! Đã quay lại trang chính.")
+                except Exception:
+                    pass
+
+    except Exception as err:
+        print(f"[*] Kiểm tra đăng nhập kết thúc ({err}).")
 
 async def main():
     async with async_playwright() as p:
@@ -91,8 +141,12 @@ async def main():
             except Exception:
                 pass
 
-        # Tìm kiếm nút "Travel to Hideout"
+        # Tìm kiếm và xử lý các bước Đăng nhập & Tìm nút "Travel to Hideout"
         if page:
+            # 1. Xử lý màn hình Sign In & các bước đăng nhập
+            await handle_poe_login(page)
+
+            # 2. Tìm kiếm nút "Travel to Hideout"
             print("\n[*] Đang tìm kiếm nút 'Travel to Hideout' (<button class=\"btn btn-xs btn-default direct-btn\">)...")
             selectors = [
                 "button.direct-btn",
