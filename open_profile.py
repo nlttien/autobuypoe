@@ -42,8 +42,53 @@ async def main():
                 print(">>> LƯU Ý: Nếu Chrome đang mở bình thường, hãy đóng Chrome hoặc chạy file launch_chrome.bat trước!")
                 return
 
-        print("\n[+] Chrome đã sẵn sàng! Đã dừng lại sau khi mở Chrome (Không mở trang web nào).")
-        print("[i] Nhấn Ctrl+C để kết thúc script (Trình duyệt sẽ giữ nguyên trạng thái).")
+        # Thực hiện chuyển hướng đến TARGET_URL một cách an toàn
+        print(f"\n[*] Đang chuyển hướng đến trang web: {TARGET_URL}")
+        try:
+            await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
+            print("[+] Đã chuyển hướng thành công!")
+        except Exception as goto_err:
+            print(f"[!] Cảnh báo khi chuyển hướng: {goto_err}")
+            print("[*] Vẫn tiếp tục kiểm tra trang...")
+
+        try:
+            title = await page.title()
+            url = page.url
+            print(f"[+] Tiêu đề trang: {title}")
+            print(f"[+] URL hiện tại  : {url}")
+        except Exception:
+            pass
+
+        # Tìm kiếm nút "Travel to Hideout"
+        print("\n[*] Đang tìm kiếm nút 'Travel to Hideout' (<button class=\"btn btn-xs btn-default direct-btn\">)...")
+        selectors = [
+            "button.direct-btn",
+            "button:has-text('Travel to Hideout')",
+            ".direct-btn"
+        ]
+        
+        found = False
+        for sel in selectors:
+            try:
+                await page.wait_for_selector(sel, timeout=10000)
+                buttons = page.locator(sel)
+                count = await buttons.count()
+                if count > 0:
+                    print(f"[+] ĐÃ TÌM THẤY {count} nút với selector '{sel}':")
+                    for i in range(count):
+                        btn = buttons.nth(i)
+                        txt = await btn.inner_text()
+                        visible = await btn.is_visible()
+                        print(f"    - Nút #{i+1}: Text='{txt.strip()}', Hiển thị={visible}")
+                    found = True
+                    break
+            except Exception:
+                continue
+
+        if not found:
+            print("[-] Chưa tìm thấy nút 'Travel to Hideout' trong 10s (Có thể trang đang load danh sách kết quả, cần xác minh Cloudflare hoặc chưa có kết quả nào).")
+        
+        print("\n[i] Nhấn Ctrl+C để kết thúc script (Trình duyệt sẽ giữ nguyên trạng thái).")
         try:
             while True:
                 await asyncio.sleep(1)
