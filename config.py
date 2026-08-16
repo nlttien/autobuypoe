@@ -23,3 +23,10 @@ PROFILE_NAME = os.getenv("PROFILE_NAME", "Default")
 
 # URL Remote Debugging CDP
 CDP_URL = os.getenv("CDP_URL", "http://127.0.0.1:9222")
+
+# URL mục tiêu cần mở và thao tác
+TARGET_URL = os.getenv(
+    "TARGET_URL",
+    "https://www.pathofexile.com/trade/search/Allflame/rPaWLegmCQ"
+)
+
