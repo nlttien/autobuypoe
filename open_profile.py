@@ -308,7 +308,7 @@ async def main():
                 except Exception:
                     pass
 
-            # 2. Tìm kiếm nút "Travel to Hideout"
+            # 2. Tìm kiếm và click vào nút "Travel to Hideout" thứ 3
             print("\n[*] Đang tìm kiếm nút 'Travel to Hideout' (<button class=\"btn btn-xs btn-default direct-btn\">)...")
             selectors = [
                 "button.direct-btn",
@@ -329,6 +329,33 @@ async def main():
                             txt = await btn.inner_text()
                             visible = await btn.is_visible()
                             print(f"    - Nút #{i+1}: Text='{txt.strip()}', Hiển thị={visible}")
+                        
+                        # Click vào nút thứ 3 (Index 2)
+                        target_index = 2
+                        if count >= 3:
+                            target_btn = buttons.nth(target_index)
+                            txt_3 = await target_btn.inner_text()
+                            print(f"\n[!] THỰC HIỆN CLICK NÚT 'Travel to Hideout' THỨ 3 (Nút #3: '{txt_3.strip()}')...")
+                            try:
+                                await target_btn.click(force=True)
+                                print("[+] ĐÃ CLICK NÚT THỨ 3 THÀNH CÔNG qua Playwright!")
+                            except Exception as click_err:
+                                print(f"[*] Bấm Playwright báo: {click_err}, đang thử click qua Native JS...")
+                                await page.evaluate(f"""
+                                    (idx) => {{
+                                        const btns = document.querySelectorAll('{sel}');
+                                        if (btns && btns[idx]) {{
+                                            btns[idx].click();
+                                        }}
+                                    }}
+                                """, target_index)
+                                print("[+] ĐÃ CLICK NÚT THỨ 3 THÀNH CÔNG qua Native JS!")
+                        else:
+                            print(f"\n[!] Trang chỉ tìm thấy {count} nút. Đang bấm nút có sẵn vị trí #{count}...")
+                            target_btn = buttons.nth(count - 1)
+                            await target_btn.click(force=True)
+                            print(f"[+] Đã click nút vị trí #{count} thành công!")
+
                         found = True
                         break
                 except Exception:
