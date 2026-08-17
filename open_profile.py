@@ -146,7 +146,44 @@ async def handle_poe_login(page):
                                 if (pass) pass.value = "{POE_PASSWORD}";
                             }}
                         """)
-                    await asyncio.sleep(1)
+                    # 2c. Chờ Captcha Cloudflare Turnstile xác minh xong (dấu tích xanh / 'Success!')
+                    print("[*] Đang chờ Captcha Cloudflare xác minh xong (tích xanh 'Success!')...")
+                    captcha_passed = False
+                    for captcha_attempt in range(1, 20):
+                        # Kiểm tra token response trong DOM
+                        token_ok = await page.evaluate("""
+                            () => {
+                                const resp = document.querySelector('input[name="cf-turnstile-response"], input[name="g-recaptcha-response"]');
+                                if (resp && resp.value && resp.value.length > 5) return true;
+                                return false;
+                            }
+                        """)
+                        if token_ok:
+                            captcha_passed = True
+                            break
+                        
+                        # Kiểm tra trạng thái trong các iframe Turnstile
+                        for frame in page.frames:
+                            if "cloudflare" in frame.url or "challenges" in frame.url or "turnstile" in frame.url:
+                                try:
+                                    success_el = frame.locator("text='Success!', .success, #success, [data-state='success']").first
+                                    if await success_el.is_visible(timeout=1000):
+                                        captcha_passed = True
+                                        break
+                                except Exception:
+                                    pass
+                        if captcha_passed:
+                            break
+                        
+                        # Hỗ trợ click ô checkbox nếu chưa tích
+                        await handle_cloudflare(page)
+                        await asyncio.sleep(1.5)
+
+                    if captcha_passed:
+                        print("[+] CAPTCHA ĐÃ XÁC MINH THÀNH CÔNG (TÍCH XANH 'Success!')!")
+                    else:
+                        print("[!] LƯU Ý: Vui lòng tích vào ô Captcha trên màn hình Chrome...")
+                        await asyncio.sleep(3)
                     
                     # Bấm Sign In qua Native JavaScript
                     print("[*] Bấm nút 'Sign In'...")
