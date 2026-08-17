@@ -8,28 +8,48 @@ from config import CHROME_PATH, USER_DATA_DIR, PROFILE_NAME, CDP_URL, TARGET_URL
 
 async def handle_poe_login(page):
     """
-    Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập
+    Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập bằng JS DOM Native Click
     """
     try:
         # 1. Kiểm tra màn hình Sign In (nút <a class="splash__continue">CONTINUE</a>)
-        continue_selector = "a.splash__continue, a[href*='/login'], a:has-text('CONTINUE'), a:has-text('Continue'), .splash__continue"
-        try:
-            continue_btn = page.locator(continue_selector).first
-            if await continue_btn.is_visible(timeout=5000):
-                print("\n[!] PHÁT HIỆN MÀN HÌNH SIGN IN! Đang bấm nút 'CONTINUE'...")
-                await continue_btn.click(force=True)
+        print("\n[*] Đang kiểm tra màn hình Sign In (nút CONTINUE)...")
+        clicked_continue = False
+        
+        for attempt in range(1, 10):
+            # Thử click bằng Native JavaScript DOM (Bỏ qua hoàn toàn Infobar/Overlay/Google Translate)
+            js_click_result = await page.evaluate("""
+                () => {
+                    const btn = document.querySelector('a.splash__continue') || 
+                                document.querySelector("a[href*='/login']") || 
+                                Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toUpperCase().includes('CONTINUE'));
+                    if (btn) {
+                        btn.click();
+                        return true;
+                    }
+                    return false;
+                }
+            """)
+            
+            if js_click_result:
+                print(f"[+] [Lần {attempt}] ĐÃ CLICK THÀNH CÔNG NÚT 'CONTINUE' qua Native JavaScript!")
+                clicked_continue = True
                 await page.wait_for_load_state("domcontentloaded")
-                await asyncio.sleep(2)
-        except Exception as err_c:
-            print(f"[!] Cảnh báo click Continue: {err_c}")
+                await asyncio.sleep(3)
+                break
+            else:
+                await asyncio.sleep(1.5)
+
+        if not clicked_continue:
+            print("[-] Không thấy nút 'CONTINUE' hoặc trang đã ở trạng thái khác.")
 
         # 2. Kiểm tra nếu đang ở trang Đăng nhập (/login)
-        if "/login" in page.url:
+        if "/login" in page.url or "redir=" in page.url:
             print("[*] Đang ở trang Đăng nhập (/login)...")
+            await page.wait_for_load_state("domcontentloaded")
+            await asyncio.sleep(1)
             
             email_input = page.locator("input#login_email, input[name='login_email'], input[type='email']").first
             password_input = page.locator("input#login_password, input[name='login_password'], input[type='password']").first
-            submit_btn = page.locator("input#login_submit, button#login_submit, input[type='submit'][value*='Sign In'], button:has-text('Sign In')").first
             
             if await email_input.is_visible(timeout=5000) and await password_input.is_visible(timeout=5000):
                 if POE_EMAIL and POE_PASSWORD:
@@ -38,10 +58,18 @@ async def handle_poe_login(page):
                     await password_input.fill(POE_PASSWORD)
                     await asyncio.sleep(1)
                     
-                    if await submit_btn.is_visible():
-                        print("[*] Bấm nút 'Sign In'...")
-                        await submit_btn.click(force=True)
-                        print("[+] Đã gửi thông tin đăng nhập!")
+                    # Bấm Sign In qua Native JavaScript
+                    print("[*] Bấm nút 'Sign In' qua Native JS...")
+                    await page.evaluate("""
+                        () => {
+                            const btn = document.querySelector('input#login_submit') || 
+                                        document.querySelector('button#login_submit') || 
+                                        document.querySelector("input[type='submit']") || 
+                                        Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim().toUpperCase().includes('SIGN IN'));
+                            if (btn) btn.click();
+                        }
+                    """)
+                    print("[+] Đã gửi thông tin đăng nhập!")
                 else:
                     print("[!] LƯU Ý: Chưa điền POE_EMAIL và POE_PASSWORD trong file config.py / .env.")
                     print("[*] Vui lòng tự nhập tài khoản và đăng nhập trên màn hình Chrome...")
