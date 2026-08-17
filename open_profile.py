@@ -103,65 +103,32 @@ async def main():
         context = None
         page = None
         
-        # 1. Thử kết nối tới Chrome CDP tại http://127.0.0.1:9222
+        # Khởi chạy Chrome với AutomationProfile riêng biệt
         try:
-            print(f"[*] Thử kết nối vào Chrome CDP tại {CDP_URL}...")
-            browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=2000)
-            context = browser.contexts[0]
-            print("[+] THÀNH CÔNG: Đã kết nối vào trình duyệt Chrome đang chạy qua CDP!")
-        except Exception:
-            print("[-] Chưa kết nối CDP trực tiếp. Tiến hành tự khởi chạy Chrome hệ thống...")
-            
-            # Dọn dẹp các tiến trình Chrome cũ/treo và file SingletonLock nếu chạy trên Windows
-            if os.name == 'nt':
-                try:
-                    subprocess.run(["taskkill", "/F", "/IM", "chrome.exe", "/T"], capture_output=True)
-                    await asyncio.sleep(1)
-                except Exception:
-                    pass
-
-                try:
-                    lock_file = os.path.join(USER_DATA_DIR, "SingletonLock")
-                    if os.path.exists(lock_file):
-                        os.remove(lock_file)
-                        print("[+] Đã tự động dọn dẹp file khóa Profile SingletonLock.")
-                except Exception:
-                    pass
-
-            # Khởi chạy Chrome hệ thống bằng Subprocess với Port 9222
+            print(f"[*] Khởi chạy Chrome với Profile tự động hóa ({USER_DATA_DIR})...")
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=USER_DATA_DIR,
+                executable_path=CHROME_PATH if (os.path.exists(CHROME_PATH)) else None,
+                headless=False,
+                channel="chrome",
+                no_viewport=True,
+                args=[
+                    "--remote-allow-origins=*",
+                    "--disable-session-crashed-bubble",
+                    "--disable-infobars",
+                    "--hide-crash-restore-bubble",
+                    "--restore-last-session=false"
+                ]
+            )
+            print("[+] THÀNH CÔNG: Đã mở Chrome với Profile tự động hóa!")
+        except Exception as launch_err:
+            print(f"[-] Không thể gọi launch_persistent_context ({launch_err}). Thử kết nối CDP...")
             try:
-                if os.name == 'nt' and os.path.exists(CHROME_PATH):
-                    cmd = [
-                        CHROME_PATH,
-                        "--remote-debugging-port=9222",
-                        f"--user-data-dir={USER_DATA_DIR}",
-                        f"--profile-directory={PROFILE_NAME}",
-                        "--remote-allow-origins=*",
-                        "--disable-session-crashed-bubble",
-                        "--disable-infobars",
-                        "--hide-crash-restore-bubble",
-                        "--restore-last-session=false",
-                        TARGET_URL
-                    ]
-                    print(f"[*] Mở Chrome hệ thống với Profile {PROFILE_NAME} & Port 9222...")
-                    subprocess.Popen(cmd)
-                else:
-                    webbrowser.open(TARGET_URL)
-                
-                # Thử kết nối lại CDP trong vòng lặp (Retry Loop 10 lần)
-                print("[*] Đang chờ Chrome sẵn sàng cổng CDP 9222...")
-                for retry in range(1, 11):
-                    await asyncio.sleep(1.5)
-                    try:
-                        browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=3000)
-                        context = browser.contexts[0]
-                        print(f"[+] THÀNH CÔNG: Đã kết nối vào Chrome CDP (Lần thử #{retry})!")
-                        break
-                    except Exception:
-                        print(f"[*] Đang chờ kết nối CDP (Lần thử #{retry}/10)...")
-
-            except Exception as launch_err:
-                print(f"[!] Lỗi khởi chạy Chrome: {launch_err}")
+                browser = await p.chromium.connect_over_cdp(CDP_URL, timeout=3000)
+                context = browser.contexts[0]
+                print("[+] THÀNH CÔNG: Đã kết nối vào Chrome CDP!")
+            except Exception as cdp_err:
+                print(f"[!] Kết nối CDP thất bại: {cdp_err}")
 
         # Thực thi điều hướng và thao tác lập tức
         if context:

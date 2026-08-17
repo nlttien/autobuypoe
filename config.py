@@ -16,7 +16,7 @@ CHROME_PATH = os.getenv(
 # Đường dẫn thư mục User Data của Chrome trên Windows
 USER_DATA_DIR = os.getenv(
     "USER_DATA_DIR",
-    rf"{LOCAL_APPDATA}\Google\Chrome\User Data"
+    rf"{LOCAL_APPDATA}\Google\Chrome\User Data\AutomationProfile"
 )
 
 # Tên Profile muốn sử dụng ("Default", "Profile 1", "Profile 2", ...)
