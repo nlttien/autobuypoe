@@ -95,26 +95,70 @@ async def handle_poe_login(page):
         if "/login" in page.url or "redir=" in page.url:
             print("[*] Đang ở trang Đăng nhập (/login)...")
             await page.wait_for_load_state("domcontentloaded")
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.5)
             
-            email_input = page.locator("input#login_email, input[name='login_email'], input[type='email']").first
-            password_input = page.locator("input#login_password, input[name='login_password'], input[type='password']").first
+            # 2a. Click nút tùy chọn Email nếu có (VD: nút 'Email', 'Sign in with Email', ...)
+            print("[*] Kiểm tra nút chọn Đăng nhập bằng Email...")
+            try:
+                clicked_email_tab = await page.evaluate("""
+                    () => {
+                        const emailBtn = document.querySelector('a.btn-email') || 
+                                         document.querySelector('button.btn-email') || 
+                                         document.querySelector("a[href*='email']") || 
+                                         Array.from(document.querySelectorAll('a, button, div, span')).find(el => {
+                                             const txt = el.textContent ? el.textContent.trim().toLowerCase() : '';
+                                             return txt === 'email' || txt.includes('sign in with email') || txt.includes('đăng nhập bằng email');
+                                         });
+                        if (emailBtn) {
+                            emailBtn.click();
+                            return true;
+                        }
+                        return false;
+                    }
+                """)
+                if clicked_email_tab:
+                    print("[+] ĐÃ CLICK NÚT TÙY CHỌN EMAIL!")
+                    await asyncio.sleep(1.5)
+            except Exception as e_btn:
+                print(f"[*] Cảnh báo click nút Email: {e_btn}")
+
+            # 2b. Chờ 2 ô nhập email và password hiển thị
+            try:
+                await page.wait_for_selector("input#login_email, input[name='login_email'], input[type='email'], input[name='email']", timeout=10000)
+            except Exception:
+                pass
+
+            email_input = page.locator("input#login_email, input[name='login_email'], input[type='email'], input[name='email']").first
+            password_input = page.locator("input#login_password, input[name='login_password'], input[type='password'], input[name='password']").first
             
-            if await email_input.is_visible(timeout=5000) and await password_input.is_visible(timeout=5000):
+            if await email_input.is_visible(timeout=5000) or await password_input.is_visible(timeout=5000):
                 if POE_EMAIL and POE_PASSWORD:
                     print(f"[*] Tự động điền email '{POE_EMAIL}' và mật khẩu...")
-                    await email_input.fill(POE_EMAIL)
-                    await password_input.fill(POE_PASSWORD)
+                    try:
+                        await email_input.fill(POE_EMAIL)
+                        await password_input.fill(POE_PASSWORD)
+                    except Exception:
+                        await page.evaluate(f"""
+                            () => {{
+                                const email = document.querySelector('input#login_email, input[name="login_email"], input[type="email"], input[name="email"]');
+                                const pass = document.querySelector('input#login_password, input[name="login_password"], input[type="password"], input[name="password"]');
+                                if (email) email.value = "{POE_EMAIL}";
+                                if (pass) pass.value = "{POE_PASSWORD}";
+                            }}
+                        """)
                     await asyncio.sleep(1)
                     
                     # Bấm Sign In qua Native JavaScript
-                    print("[*] Bấm nút 'Sign In' qua Native JS...")
+                    print("[*] Bấm nút 'Sign In'...")
                     await page.evaluate("""
                         () => {
                             const btn = document.querySelector('input#login_submit') || 
                                         document.querySelector('button#login_submit') || 
                                         document.querySelector("input[type='submit']") || 
-                                        Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim().toUpperCase().includes('SIGN IN'));
+                                        Array.from(document.querySelectorAll('button, input')).find(el => {
+                                            const txt = (el.value || el.textContent || '').trim().toUpperCase();
+                                            return txt.includes('SIGN IN') || txt.includes('DANG NHAP');
+                                        });
                             if (btn) btn.click();
                         }
                     """)
