@@ -52,6 +52,18 @@ async def handle_poe_login(page):
     Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập bằng JS DOM Native Click
     """
     try:
+        # 0. Kiểm tra xem đã ở sẵn giao diện trang Trade (đã đăng nhập sẵn) chưa
+        is_already_trade = await page.evaluate("""
+            () => {
+                const btns = document.querySelectorAll('button.direct-btn, .direct-btn');
+                const results = document.querySelector('.results, .search-results');
+                return (btns && btns.length > 0) || (results !== null);
+            }
+        """)
+        if is_already_trade:
+            print("\n[+] PHÁT HIỆN ĐÃ VÀO THẲNG TRANG TRADE! (Đã đăng nhập sẵn).")
+            return
+
         # Chờ cho đến khi khung Sign In (.splash) hoặc kết quả tìm kiếm được render lên DOM
         print("\n[*] Đang chờ trang PoE Trade và khung Sign In tải xong toàn bộ DOM...")
         try:
