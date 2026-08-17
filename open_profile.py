@@ -52,32 +52,24 @@ async def handle_poe_login(page):
     Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập bằng JS DOM Native Click
     """
     try:
-        # 0. Kiểm tra xem đã ở sẵn giao diện trang Trade (đã đăng nhập sẵn) chưa
-        is_already_trade = await page.evaluate("""
-            () => {
-                const btns = document.querySelectorAll('button.direct-btn, .direct-btn');
-                const results = document.querySelector('.results, .search-results');
-                return (btns && btns.length > 0) || (results !== null);
-            }
-        """)
-        if is_already_trade:
-            print("\n[+] PHÁT HIỆN ĐÃ VÀO THẲNG TRANG TRADE! (Đã đăng nhập sẵn).")
-            return
-
-        # Chờ cho đến khi khung Sign In (.splash) hoặc kết quả tìm kiếm được render lên DOM
-        print("\n[*] Đang chờ trang PoE Trade và khung Sign In tải xong toàn bộ DOM...")
-        try:
-            await page.wait_for_selector("a.splash__continue, .splash, button.direct-btn, .results", timeout=15000)
-            await asyncio.sleep(1.5)
-        except Exception:
-            pass
-
-        # 1. Kiểm tra màn hình Sign In (nút <a class="splash__continue">CONTINUE</a>)
-        print("[*] Đang kiểm tra màn hình Sign In (nút CONTINUE)...")
+        # 1. Kiểm tra trang PoE Trade
+        print("\n[*] Đang kiểm tra trang PoE Trade...")
         clicked_continue = False
         
         for attempt in range(1, 10):
-            # Thử click bằng Native JavaScript DOM (Bỏ qua hoàn toàn Infobar/Overlay/Google Translate)
+            # Nếu trang đã nạp xong và có nút Travel to Hideout hoặc khung kết quả -> Thoát ngay lập tức
+            is_trade_ready = await page.evaluate("""
+                () => {
+                    const btns = document.querySelectorAll('button.direct-btn, .direct-btn');
+                    const results = document.querySelector('.results, .search-results, .row.result');
+                    return (btns && btns.length > 0) || (results !== null);
+                }
+            """)
+            if is_trade_ready:
+                print(f"[+] [Lần {attempt}] PHÁT HIỆN ĐÃ Ở TRANG TRADE & CÓ NÚT TRAVEL TO HIDEOUT!")
+                return
+
+            # Nếu chưa có nút Travel to Hideout, thử click nút CONTINUE nếu ở màn hình Sign In
             js_click_result = await page.evaluate("""
                 () => {
                     const btn = document.querySelector('a.splash__continue') || 
@@ -95,12 +87,22 @@ async def handle_poe_login(page):
                 print(f"[+] [Lần {attempt}] ĐÃ CLICK THÀNH CÔNG NÚT 'CONTINUE' qua Native JavaScript!")
                 clicked_continue = True
                 await page.wait_for_load_state("domcontentloaded")
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
                 break
             else:
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(0.5)
 
         if not clicked_continue:
+            # Kiểm tra lại xem có kết quả Trade không trước khi báo không thấy nút CONTINUE
+            is_trade_final = await page.evaluate("""
+                () => {
+                    const btns = document.querySelectorAll('button.direct-btn, .direct-btn');
+                    return btns && btns.length > 0;
+                }
+            """)
+            if is_trade_final:
+                print("[+] NẠP TRANG TRADE THÀNH CÔNG!")
+                return
             print("[-] Không thấy nút 'CONTINUE' hoặc trang đã ở trạng thái khác.")
 
         # 2. Kiểm tra nếu đang ở trang Đăng nhập (/login)
