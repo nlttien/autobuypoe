@@ -11,8 +11,16 @@ async def handle_poe_login(page):
     Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập bằng JS DOM Native Click
     """
     try:
+        # Chờ cho đến khi khung Sign In (.splash) hoặc kết quả tìm kiếm được render lên DOM
+        print("\n[*] Đang chờ trang PoE Trade và khung Sign In tải xong toàn bộ DOM...")
+        try:
+            await page.wait_for_selector("a.splash__continue, .splash, button.direct-btn, .results", timeout=15000)
+            await asyncio.sleep(1.5)
+        except Exception:
+            pass
+
         # 1. Kiểm tra màn hình Sign In (nút <a class="splash__continue">CONTINUE</a>)
-        print("\n[*] Đang kiểm tra màn hình Sign In (nút CONTINUE)...")
+        print("[*] Đang kiểm tra màn hình Sign In (nút CONTINUE)...")
         clicked_continue = False
         
         for attempt in range(1, 10):
