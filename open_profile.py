@@ -12,17 +12,17 @@ async def handle_poe_login(page):
     """
     try:
         # 1. Kiểm tra màn hình Sign In (nút <a class="splash__continue">CONTINUE</a>)
-        continue_selector = "a.splash__continue, a[href*='/login'], a:has-text('Continue')"
+        continue_selector = "a.splash__continue, a[href*='/login'], a:has-text('CONTINUE'), a:has-text('Continue'), .splash__continue"
         try:
             continue_btn = page.locator(continue_selector).first
             if await continue_btn.is_visible(timeout=5000):
                 print("\n[!] PHÁT HIỆN MÀN HÌNH SIGN IN! Đang bấm nút 'CONTINUE'...")
-                await continue_btn.click()
+                await continue_btn.click(force=True)
                 await page.wait_for_load_state("domcontentloaded")
                 await asyncio.sleep(2)
-        except Exception:
-            pass
-        
+        except Exception as err_c:
+            print(f"[!] Cảnh báo click Continue: {err_c}")
+
         # 2. Kiểm tra nếu đang ở trang Đăng nhập (/login)
         if "/login" in page.url:
             print("[*] Đang ở trang Đăng nhập (/login)...")
@@ -40,7 +40,7 @@ async def handle_poe_login(page):
                     
                     if await submit_btn.is_visible():
                         print("[*] Bấm nút 'Sign In'...")
-                        await submit_btn.click()
+                        await submit_btn.click(force=True)
                         print("[+] Đã gửi thông tin đăng nhập!")
                 else:
                     print("[!] LƯU Ý: Chưa điền POE_EMAIL và POE_PASSWORD trong file config.py / .env.")
@@ -134,7 +134,15 @@ async def main():
 
         # Thực thi điều hướng và thao tác lập tức
         if context:
-            page = context.pages[0] if context.pages else await context.new_page()
+            # Ưu tiên chọn tab đang mở trang Path of Exile
+            page = None
+            for p_item in context.pages:
+                if "pathofexile.com" in p_item.url:
+                    page = p_item
+                    break
+
+            if not page:
+                page = context.pages[-1] if context.pages else await context.new_page()
             
             try:
                 await page.bring_to_front()
