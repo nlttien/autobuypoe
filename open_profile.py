@@ -93,7 +93,11 @@ async def main():
                     channel="chrome",
                     args=[
                         f"--profile-directory={PROFILE_NAME}",
-                        "--remote-allow-origins=*"
+                        "--remote-allow-origins=*",
+                        "--disable-session-crashed-bubble",
+                        "--disable-infobars",
+                        "--hide-crash-restore-bubble",
+                        "--restore-last-session=false"
                     ]
                 )
                 print("[+] THÀNH CÔNG: Đã khởi chạy Chrome với Profile cá nhân!")
@@ -108,6 +112,10 @@ async def main():
                             f"--user-data-dir={USER_DATA_DIR}",
                             f"--profile-directory={PROFILE_NAME}",
                             "--remote-allow-origins=*",
+                            "--disable-session-crashed-bubble",
+                            "--disable-infobars",
+                            "--hide-crash-restore-bubble",
+                            "--restore-last-session=false",
                             TARGET_URL
                         ]
                         subprocess.Popen(cmd)
