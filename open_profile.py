@@ -133,8 +133,7 @@ async def main():
                         "--disable-session-crashed-bubble",
                         "--disable-infobars",
                         "--hide-crash-restore-bubble",
-                        "--restore-last-session=false",
-                        TARGET_URL
+                        "--restore-last-session=false"
                     ]
                 )
                 print("[+] THÀNH CÔNG: Đã khởi chạy Chrome với Profile cá nhân!")
