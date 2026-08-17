@@ -112,7 +112,7 @@ async def main():
         except Exception:
             print("[-] Chưa kết nối CDP trực tiếp. Tiến hành tự khởi chạy Chrome...")
             
-            # Dọn dẹp các tiến trình Chrome cũ/treo nếu chạy trên Windows
+            # Dọn dẹp các tiến trình Chrome cũ/treo và file SingletonLock nếu chạy trên Windows
             if os.name == 'nt':
                 try:
                     subprocess.run(["taskkill", "/F", "/IM", "chrome.exe", "/T"], capture_output=True)
@@ -120,13 +120,24 @@ async def main():
                 except Exception:
                     pass
 
+                # Xóa file SingletonLock nếu tồn tại để tránh rào cản profile bị khóa
+                try:
+                    lock_file = os.path.join(USER_DATA_DIR, "SingletonLock")
+                    if os.path.exists(lock_file):
+                        os.remove(lock_file)
+                        print("[+] Đã tự động dọn dẹp file khóa Profile SingletonLock.")
+                except Exception:
+                    pass
+
             try:
+                print("[*] Khởi chạy Chrome Profile cá nhân qua Playwright...")
                 # Tự khởi chạy Chrome Profile trực tiếp qua Playwright
                 context = await p.chromium.launch_persistent_context(
                     user_data_dir=USER_DATA_DIR,
                     executable_path=CHROME_PATH if (os.path.exists(CHROME_PATH)) else None,
                     headless=False,
                     channel="chrome",
+                    no_viewport=True,
                     args=[
                         f"--profile-directory={PROFILE_NAME}",
                         "--remote-allow-origins=*",
