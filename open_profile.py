@@ -6,6 +6,47 @@ import webbrowser
 from playwright.async_api import async_playwright
 from config import CHROME_PATH, USER_DATA_DIR, PROFILE_NAME, CDP_URL, TARGET_URL, POE_EMAIL, POE_PASSWORD
 
+async def handle_cloudflare(page):
+    """
+    Tự động phát hiện và hỗ trợ xử lý màn hình Cloudflare Verify ('Just a moment...')
+    """
+    try:
+        title = await page.title()
+        if "Just a moment" in title or "cf_chl_rt_tk" in page.url:
+            print("\n[!] PHÁT HIỆN MÀN HÌNH VERIFY CLOUDFLARE ('Verify you are human')!")
+            print("[*] Đang thử tự động click ô xác minh Turnstile...")
+            
+            for check_attempt in range(1, 8):
+                # Duyệt qua các frame tìm checkbox Turnstile
+                for frame in page.frames:
+                    if "cloudflare" in frame.url or "challenges" in frame.url or "turnstile" in frame.url:
+                        try:
+                            cb = frame.locator("input[type='checkbox'], .mark, #challenge-stage, span.mark").first
+                            if await cb.is_visible(timeout=2000):
+                                print("[+] Đã tìm thấy ô checkbox Verify! Đang click...")
+                                await cb.click(force=True)
+                                await asyncio.sleep(3)
+                                break
+                        except Exception:
+                            pass
+                
+                await asyncio.sleep(2)
+                title_now = await page.title()
+                if "Just a moment" not in title_now:
+                    print("[+] VƯỢT QUA CLOUDFLARE THÀNH CÔNG!")
+                    return True
+            
+            # Nếu Cloudflare yêu cầu tương tác thủ công
+            print("[!] LƯU Ý: Vui lòng tích vào ô 'Verify you are human' trên cửa sổ Chrome...")
+            print("[*] Script đang chờ bạn vượt qua Cloudflare...")
+            try:
+                await page.wait_for_url(lambda u: "cf_chl_rt_tk" not in u and "Just a moment" not in page.url, timeout=120000)
+                print("[+] Đã nhận diện vượt qua Cloudflare!")
+            except Exception:
+                pass
+    except Exception as cf_err:
+        print(f"[*] Kiểm tra Cloudflare hoàn tất ({cf_err}).")
+
 async def handle_poe_login(page):
     """
     Xử lý kiểm tra màn hình Sign In và thực hiện các bước đăng nhập bằng JS DOM Native Click
@@ -117,7 +158,8 @@ async def main():
                     "--disable-session-crashed-bubble",
                     "--disable-infobars",
                     "--hide-crash-restore-bubble",
-                    "--restore-last-session=false"
+                    "--restore-last-session=false",
+                    "--disable-blink-features=AutomationControlled"
                 ]
             )
             print("[+] THÀNH CÔNG: Đã mở Chrome với Profile tự động hóa!")
@@ -129,6 +171,13 @@ async def main():
                 print("[+] THÀNH CÔNG: Đã kết nối vào Chrome CDP!")
             except Exception as cdp_err:
                 print(f"[!] Kết nối CDP thất bại: {cdp_err}")
+
+        # Stealth Mode: Ẩn navigator.webdriver
+        if context:
+            try:
+                await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            except Exception:
+                pass
 
         # Thực thi điều hướng và thao tác lập tức
         if context:
@@ -163,6 +212,9 @@ async def main():
                 print(f"[+] URL hiện tại  : {page.url}")
             except Exception:
                 pass
+
+            # 0. Kiểm tra & xử lý Cloudflare Verify
+            await handle_cloudflare(page)
 
             # 1. Xử lý màn hình Sign In & các bước đăng nhập
             await handle_poe_login(page)
